@@ -1,5 +1,6 @@
 package org.bedepay.rareItems.util;
 
+import com.google.common.collect.Multimap;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
@@ -21,6 +22,8 @@ import org.bukkit.plugin.Plugin;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.Map;
+import java.util.HashMap;
 
 public class ItemUtil {
     private static final MiniMessage miniMessage = MiniMessage.miniMessage();
@@ -33,22 +36,19 @@ public class ItemUtil {
     }
     
     /**
-     * Проверяет, является ли материал оружием
+     * Проверяет, является ли материал оружием используя Paper API
      */
-    private static boolean isWeapon(Material material) {
-        String name = material.name();
-        return name.endsWith("_SWORD") || name.endsWith("_AXE") || 
-               name.equals("BOW") || name.equals("CROSSBOW") || name.equals("TRIDENT");
+    private static boolean isWeapon(Material material, RareItems plugin) {
+        MaterialTypeChecker checker = new MaterialTypeChecker(plugin);
+        return checker.isWeapon(material);
     }
     
     /**
-     * Проверяет, является ли материал броней
+     * Проверяет, является ли материал броней используя Paper API
      */
-    private static boolean isArmor(Material material) {
-        String name = material.name();
-        return name.endsWith("_HELMET") || name.endsWith("_CHESTPLATE") || 
-               name.endsWith("_LEGGINGS") || name.endsWith("_BOOTS") ||
-               name.equals("SHIELD"); // Щиты тоже броня
+    private static boolean isArmor(Material material, RareItems plugin) {
+        MaterialTypeChecker checker = new MaterialTypeChecker(plugin);
+        return checker.isArmor(material);
     }
     
     /**
@@ -62,28 +62,26 @@ public class ItemUtil {
             return clonedItem;
         }
         
-        // Получаем базовые атрибуты предмета
-        double baseDamage = getBaseDamage(clonedItem.getType());
-        double baseArmor = getBaseArmor(clonedItem.getType());
-        double baseAttackSpeed = getBaseAttackSpeed(clonedItem.getType());
+        // Получаем базовые атрибуты предмета из Paper API
+        Map<Attribute, Double> baseAttributes = getBaseAttributes(clonedItem.getType());
         
         // Создаем красивое название с градиентом
         Component displayName = createDisplayName(clonedItem.getType(), rarity);
         meta.displayName(displayName);
         
         // Создаем красивое описание
-        List<Component> lore = createLore(rarity, baseDamage, baseArmor, baseAttackSpeed, clonedItem.getType());
+        List<Component> lore = createLore(rarity, baseAttributes, clonedItem.getType(), plugin);
         meta.lore(lore);
         
         // Сохраняем редкость в NBT
         meta.getPersistentDataContainer().set(
-                getKey(plugin, "rarity"),
-                PersistentDataType.STRING,
-                rarity.getId()
+                        getKey(plugin, "rarity"),
+        PersistentDataType.STRING,
+        rarity.id()
         );
         
         // Применяем правильные атрибуты (добавляем к базовым, а не заменяем)
-        applyCorrectAttributes(plugin, meta, clonedItem.getType(), rarity, baseDamage, baseArmor, baseAttackSpeed);
+        applyCorrectAttributes(plugin, meta, clonedItem.getType(), rarity, baseAttributes);
         
         clonedItem.setItemMeta(meta);
         return clonedItem;
@@ -125,8 +123,8 @@ public class ItemUtil {
         String capitalizedName = capitalizeWords(materialName);
         
         // Создаем простое название с цветом редкости
-        Component rarityComponent = Component.text(rarity.getName() + " ")
-                .color(rarity.getColor())
+        Component rarityComponent = Component.text(rarity.name() + " ")
+                .color(rarity.color())
                 .decoration(TextDecoration.ITALIC, false);
         
         Component nameComponent = Component.text(capitalizedName)
@@ -136,13 +134,13 @@ public class ItemUtil {
         return rarityComponent.append(nameComponent);
     }
     
-    private static List<Component> createLore(Rarity rarity, double baseDamage, double baseArmor, double baseAttackSpeed, Material material) {
+    private static List<Component> createLore(Rarity rarity, Map<Attribute, Double> baseAttributes, Material material, RareItems plugin) {
         List<Component> lore = new ArrayList<>();
         
         // Заголовок редкости с звездами
-        String stars = getRarityStars(rarity.getId());
-        Component rarityHeader = Component.text(stars + " " + rarity.getName() + " " + stars)
-                .color(rarity.getColor())
+        String stars = getRarityStars(rarity.id());
+        Component rarityHeader = Component.text(stars + " " + rarity.name() + " " + stars)
+                .color(rarity.color())
                 .decoration(TextDecoration.BOLD, true)
                 .decoration(TextDecoration.ITALIC, false);
         lore.add(rarityHeader);
@@ -150,21 +148,23 @@ public class ItemUtil {
         // Компактная строка с основными бонусами
         List<String> bonuses = new ArrayList<>();
         
-        if (rarity.getDamageBonus() > 0 && isWeapon(material)) {
+        if (rarity.damageBonus() > 0 && isWeapon(material, plugin)) {
             // Для оружия показываем итоговый урон
-            double totalDamage = baseDamage + rarity.getDamageBonus();
-            bonuses.add(formatBonus(totalDamage) + "⚔ (+" + formatBonus(rarity.getDamageBonus()) + ")");
+            double baseDamage = baseAttributes.getOrDefault(Attribute.GENERIC_ATTACK_DAMAGE, 0.0);
+            double totalDamage = baseDamage + rarity.damageBonus();
+            bonuses.add(formatBonus(totalDamage) + "⚔ (+" + formatBonus(rarity.damageBonus()) + ")");
         }
-        if (rarity.getArmorBonus() > 0 && isArmor(material)) {
+        if (rarity.armorBonus() > 0 && isArmor(material, plugin)) {
             // Для брони показываем итоговую защиту
-            double totalArmor = baseArmor + rarity.getArmorBonus();
-            bonuses.add(formatBonus(totalArmor) + "🛡 (+" + formatBonus(rarity.getArmorBonus()) + ")");
+            double baseArmor = baseAttributes.getOrDefault(Attribute.GENERIC_ARMOR, 0.0);
+            double totalArmor = baseArmor + rarity.armorBonus();
+            bonuses.add(formatBonus(totalArmor) + "🛡 (+" + formatBonus(rarity.armorBonus()) + ")");
         }
-        if (rarity.getHealthBonus() > 0) {
-            bonuses.add("+" + formatBonus(rarity.getHealthBonus()) + "❤");
+        if (rarity.healthBonus() > 0) {
+            bonuses.add("+" + formatBonus(rarity.healthBonus()) + "❤");
         }
-        if (rarity.getLuckBonus() > 0) {
-            bonuses.add("+" + formatBonus(rarity.getLuckBonus()) + "🍀");
+        if (rarity.luckBonus() > 0) {
+            bonuses.add("+" + formatBonus(rarity.luckBonus()) + "🍀");
         }
         
         if (!bonuses.isEmpty()) {
@@ -184,14 +184,14 @@ public class ItemUtil {
         }
         
         // Общие эффекты при ударе (только если есть)
-        if (!rarity.getOnHitEffects().isEmpty()) {
+        if (!rarity.onHitEffects().isEmpty()) {
             StringBuilder effects = new StringBuilder();
-            rarity.getOnHitEffects().forEach((effect, amplifier) -> {
+            rarity.onHitEffects().forEach((effect, amplifier) -> {
                 if (effects.length() > 0) effects.append(", ");
                 effects.append(getShortEffectName(effect.getName()));
             });
             
-            Component effectLine = Component.text("⚡ " + effects.toString() + " (" + (int)rarity.getEffectChance() + "%)")
+            Component effectLine = Component.text("⚡ " + effects.toString() + " (" + (int)rarity.effectChance() + "%)")
                     .color(NamedTextColor.RED)
                     .decoration(TextDecoration.ITALIC, false);
             lore.add(effectLine);
@@ -247,7 +247,7 @@ public class ItemUtil {
      */
     private static String getItemTypeAbility(Material material, Rarity rarity) {
         String materialName = material.name();
-        String rarityId = rarity.getId();
+        String rarityId = rarity.id();
         
         // Мечи - урон и критические удары
         if (materialName.endsWith("_SWORD")) {
@@ -405,19 +405,63 @@ public class ItemUtil {
         }
     }
     
-
+    /**
+     * Получает базовые атрибуты материала используя Paper API
+     */
+    private static Map<Attribute, Double> getBaseAttributes(Material material) {
+        Map<Attribute, Double> attributes = new HashMap<>();
+        
+        if (!material.isItem()) {
+            return attributes;
+        }
+        
+        try {
+            // Используем Paper API для получения базовых атрибутов для основной руки
+            var defaultModifiers = material.getDefaultAttributeModifiers(EquipmentSlot.HAND);
+            
+            defaultModifiers.forEach((attribute, modifier) -> {
+                // Берем только модификаторы типа ADD_NUMBER (базовые значения)
+                if (modifier.getOperation() == AttributeModifier.Operation.ADD_NUMBER) {
+                    attributes.put(attribute, modifier.getAmount());
+                }
+            });
+            
+            // Для брони проверяем все слоты  
+            String name = material.name();
+            if (name.endsWith("_HELMET") || name.endsWith("_CHESTPLATE") || 
+                name.endsWith("_LEGGINGS") || name.endsWith("_BOOTS") || name.equals("SHIELD")) {
+                EquipmentSlot armorSlot = getEquipmentSlot(material);
+                var armorModifiers = material.getDefaultAttributeModifiers(armorSlot);
+                
+                armorModifiers.forEach((attribute, modifier) -> {
+                    if (modifier.getOperation() == AttributeModifier.Operation.ADD_NUMBER) {
+                        attributes.put(attribute, modifier.getAmount());
+                    }
+                });
+            }
+            
+        } catch (Exception e) {
+            // Fallback на пустую карту если что-то пошло не так
+            // Это может произойти для не-предметов или в тестах
+        }
+        
+        return attributes;
+    }
     
     private static void applyCorrectAttributes(RareItems plugin, ItemMeta meta, Material material, Rarity rarity, 
-                                              double baseDamage, double baseArmor, double baseAttackSpeed) {
+                                              Map<Attribute, Double> baseAttributes) {
         EquipmentSlot slot = getEquipmentSlot(material);
         
         // Атрибуты для оружия
-        if (isWeapon(material) && rarity.getDamageBonus() > 0) {
+        if (isWeapon(material, plugin) && rarity.damageBonus() > 0) {
             // Сначала удаляем существующие атрибуты урона (если есть)
             meta.removeAttributeModifier(Attribute.GENERIC_ATTACK_DAMAGE);
             
+            // Получаем базовый урон из Paper API
+            double baseDamage = baseAttributes.getOrDefault(Attribute.GENERIC_ATTACK_DAMAGE, 0.0);
+            
             // Вычисляем итоговый урон: базовый урон + бонус редкости
-            double totalDamage = baseDamage + rarity.getDamageBonus();
+            double totalDamage = baseDamage + rarity.damageBonus();
             
             // Добавляем атрибут с полным уроном для основной руки
             meta.addAttributeModifier(
@@ -434,14 +478,17 @@ public class ItemUtil {
             // Отладочная информация
             if (plugin.getConfigManager().isDebugMode()) {
                 plugin.getLogger().info(String.format("[RareItems Debug] Оружие: %s | Базовый урон: %.1f | Бонус: %.1f | Итоговый урон: %.1f", 
-                                        material.name(), baseDamage, rarity.getDamageBonus(), totalDamage));
+                                        material.name(), baseDamage, rarity.damageBonus(), totalDamage));
             }
         }
         
         // Применяем скорость атаки для оружия (важно для корректного урона)
-        if (isWeapon(material)) {
+        if (isWeapon(material, plugin)) {
             // Удаляем существующий атрибут скорости атаки
             meta.removeAttributeModifier(Attribute.GENERIC_ATTACK_SPEED);
+            
+            // Получаем базовую скорость атаки из Paper API
+            double baseAttackSpeed = baseAttributes.getOrDefault(Attribute.GENERIC_ATTACK_SPEED, 4.0);
             
             // Применяем базовую скорость атаки (без бонусов для баланса PvP)
             meta.addAttributeModifier(
@@ -457,13 +504,16 @@ public class ItemUtil {
         }
         
         // Атрибуты для брони
-        if (isArmor(material)) {
-            if (rarity.getArmorBonus() > 0) {
+        if (isArmor(material, plugin)) {
+            if (rarity.armorBonus() > 0) {
                 // Удаляем существующие атрибуты брони
                 meta.removeAttributeModifier(Attribute.GENERIC_ARMOR);
                 
+                // Получаем базовую защиту из Paper API
+                double baseArmor = baseAttributes.getOrDefault(Attribute.GENERIC_ARMOR, 0.0);
+                
                 // Вычисляем итоговую защиту: базовая + бонус
-                double totalArmor = baseArmor + rarity.getArmorBonus();
+                double totalArmor = baseArmor + rarity.armorBonus();
                 
                 meta.addAttributeModifier(
                         Attribute.GENERIC_ARMOR,
@@ -477,16 +527,19 @@ public class ItemUtil {
                 );
             }
             
-            if (rarity.getToughnessBonus() > 0) {
+            if (rarity.toughnessBonus() > 0) {
                 // Удаляем существующие атрибуты прочности
                 meta.removeAttributeModifier(Attribute.GENERIC_ARMOR_TOUGHNESS);
+                
+                // Получаем базовую прочность из Paper API
+                double baseToughness = baseAttributes.getOrDefault(Attribute.GENERIC_ARMOR_TOUGHNESS, 0.0);
                 
                 meta.addAttributeModifier(
                         Attribute.GENERIC_ARMOR_TOUGHNESS,
                         new AttributeModifier(
                                 UUID.randomUUID(),
                                 "generic.armor_toughness",
-                                rarity.getToughnessBonus(),
+                                baseToughness + rarity.toughnessBonus(),
                                 AttributeModifier.Operation.ADD_NUMBER,
                                 slot
                         )
@@ -495,46 +548,47 @@ public class ItemUtil {
             
             // Отладочная информация для брони
             if (plugin.getConfigManager().isDebugMode()) {
-                double totalArmor = baseArmor + rarity.getArmorBonus();
+                double baseArmor = baseAttributes.getOrDefault(Attribute.GENERIC_ARMOR, 0.0);
+                double totalArmor = baseArmor + rarity.armorBonus();
                 plugin.getLogger().info(String.format("[RareItems Debug] Броня: %s | Базовая защита: %.1f | Бонус защиты: %.1f | Итоговая защита: %.1f | Прочность: %.1f", 
-                                        material.name(), baseArmor, rarity.getArmorBonus(), totalArmor, rarity.getToughnessBonus()));
+                                        material.name(), baseArmor, rarity.armorBonus(), totalArmor, rarity.toughnessBonus()));
             }
         }
         
         // Универсальные атрибуты (применяются ко всем типам предметов)
-        if (rarity.getHealthBonus() > 0) {
+        if (rarity.healthBonus() > 0) {
             meta.addAttributeModifier(
                     Attribute.GENERIC_MAX_HEALTH,
                     new AttributeModifier(
                             UUID.randomUUID(),
                             "rarity.health.bonus",
-                            rarity.getHealthBonus(),
+                            rarity.healthBonus(),
                             AttributeModifier.Operation.ADD_NUMBER,
                             slot
                     )
             );
         }
         
-        if (rarity.getSpeedBonus() > 0) {
+        if (rarity.speedBonus() > 0) {
             meta.addAttributeModifier(
                     Attribute.GENERIC_MOVEMENT_SPEED,
                     new AttributeModifier(
                             UUID.randomUUID(),
                             "rarity.speed.bonus",
-                            rarity.getSpeedBonus(),
+                            rarity.speedBonus(),
                             AttributeModifier.Operation.MULTIPLY_SCALAR_1,
                             slot
                     )
             );
         }
         
-        if (rarity.getLuckBonus() > 0) {
+        if (rarity.luckBonus() > 0) {
             meta.addAttributeModifier(
                     Attribute.GENERIC_LUCK,
                     new AttributeModifier(
                             UUID.randomUUID(),
                             "rarity.luck.bonus",
-                            rarity.getLuckBonus(),
+                            rarity.luckBonus(),
                             AttributeModifier.Operation.ADD_NUMBER,
                             slot
                     )
@@ -543,79 +597,14 @@ public class ItemUtil {
         
         // Отладочная информация для универсальных атрибутов
         if (plugin.getConfigManager().isDebugMode() && 
-            (rarity.getHealthBonus() > 0 || rarity.getSpeedBonus() > 0 || rarity.getLuckBonus() > 0)) {
+            (rarity.healthBonus() > 0 || rarity.speedBonus() > 0 || rarity.luckBonus() > 0)) {
             plugin.getLogger().info(String.format("[RareItems Debug] Универсальные атрибуты %s | Здоровье: +%.1f | Скорость: +%.1f%% | Удача: +%.1f", 
-                                    material.name(), rarity.getHealthBonus(), rarity.getSpeedBonus() * 100, rarity.getLuckBonus()));
+                                    material.name(), rarity.healthBonus(), rarity.speedBonus() * 100, rarity.luckBonus()));
         }
-    }
-    
-
-    
-    private static double getBaseDamage(Material material) {
-        return switch (material) {
-            case WOODEN_SWORD -> 4.0;
-            case STONE_SWORD -> 5.0;
-            case IRON_SWORD -> 6.0;
-            case GOLDEN_SWORD -> 4.0;
-            case DIAMOND_SWORD -> 7.0;
-            case NETHERITE_SWORD -> 8.0;
-            case WOODEN_AXE -> 7.0;
-            case STONE_AXE -> 9.0;
-            case IRON_AXE -> 9.0;
-            case GOLDEN_AXE -> 7.0;
-            case DIAMOND_AXE -> 9.0;
-            case NETHERITE_AXE -> 10.0;
-            case BOW -> 0.0;
-            case CROSSBOW -> 0.0;
-            case TRIDENT -> 9.0;
-            default -> 0.0;
-        };
-    }
-    
-    private static double getBaseArmor(Material material) {
-        return switch (material) {
-            case LEATHER_HELMET, GOLDEN_HELMET, CHAINMAIL_HELMET -> 1.0;
-            case IRON_HELMET -> 2.0;
-            case DIAMOND_HELMET, NETHERITE_HELMET -> 3.0;
-            
-            case LEATHER_CHESTPLATE, GOLDEN_CHESTPLATE -> 3.0;
-            case CHAINMAIL_CHESTPLATE -> 5.0;
-            case IRON_CHESTPLATE -> 6.0;
-            case DIAMOND_CHESTPLATE -> 8.0;
-            case NETHERITE_CHESTPLATE -> 8.0;
-            
-            case LEATHER_LEGGINGS, GOLDEN_LEGGINGS -> 2.0;
-            case CHAINMAIL_LEGGINGS -> 4.0;
-            case IRON_LEGGINGS -> 5.0;
-            case DIAMOND_LEGGINGS -> 6.0;
-            case NETHERITE_LEGGINGS -> 6.0;
-            
-            case LEATHER_BOOTS, GOLDEN_BOOTS, CHAINMAIL_BOOTS -> 1.0;
-            case IRON_BOOTS -> 2.0;
-            case DIAMOND_BOOTS, NETHERITE_BOOTS -> 3.0;
-            
-            case SHIELD -> 0.0; // Щиты не дают базовой защиты в ванили
-            
-            default -> 0.0;
-        };
-    }
-    
-    private static double getBaseAttackSpeed(Material material) {
-        return switch (material) {
-            case WOODEN_SWORD, STONE_SWORD, IRON_SWORD, GOLDEN_SWORD, DIAMOND_SWORD, NETHERITE_SWORD -> 1.6;
-            case WOODEN_AXE, GOLDEN_AXE -> 0.8;
-            case STONE_AXE -> 0.8;
-            case IRON_AXE -> 0.9;
-            case DIAMOND_AXE -> 1.0;
-            case NETHERITE_AXE -> 1.0;
-            case TRIDENT -> 1.1;
-            default -> 0.0;
-        };
     }
     
     private static EquipmentSlot getEquipmentSlot(Material material) {
         String name = material.name();
-        
         if (name.endsWith("_HELMET")) {
             return EquipmentSlot.HEAD;
         } else if (name.endsWith("_CHESTPLATE")) {
@@ -626,8 +615,7 @@ public class ItemUtil {
             return EquipmentSlot.FEET;
         } else if (name.equals("SHIELD")) {
             return EquipmentSlot.OFF_HAND;
-        } else {
-            return EquipmentSlot.HAND;
         }
+        return EquipmentSlot.HAND;
     }
 } 

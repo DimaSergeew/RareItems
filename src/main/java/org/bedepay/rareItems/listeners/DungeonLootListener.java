@@ -4,6 +4,7 @@ import org.bedepay.rareItems.RareItems;
 import org.bedepay.rareItems.config.ConfigManager;
 import org.bedepay.rareItems.rarity.Rarity;
 import org.bedepay.rareItems.util.ItemUtil;
+import org.bedepay.rareItems.util.MaterialTypeChecker;
 import org.bukkit.Material;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -20,11 +21,13 @@ public class DungeonLootListener implements Listener {
     
     private final RareItems plugin;
     private final ConfigManager configManager;
+    private final MaterialTypeChecker materialTypeChecker;
     private final Random random = new Random();
     
     public DungeonLootListener(RareItems plugin, ConfigManager configManager) {
         this.plugin = plugin;
         this.configManager = configManager;
+        this.materialTypeChecker = new MaterialTypeChecker(plugin);
     }
     
     @EventHandler(priority = EventPriority.HIGH)
@@ -76,16 +79,7 @@ public class DungeonLootListener implements Listener {
     }
     
     private boolean isWeaponOrArmor(Material material) {
-        String name = material.name();
-        return name.endsWith("_SWORD") || 
-               name.endsWith("_AXE") || 
-               name.endsWith("_HELMET") || 
-               name.endsWith("_CHESTPLATE") || 
-               name.endsWith("_LEGGINGS") || 
-               name.endsWith("_BOOTS") ||
-               name.equals("BOW") || 
-               name.equals("CROSSBOW") || 
-               name.equals("TRIDENT");
+        return materialTypeChecker.isWeaponOrArmor(material);
     }
     
     private ItemStack applyDungeonRarity(ItemStack item) {

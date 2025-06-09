@@ -59,7 +59,7 @@ public class WeaponEffectListener implements Listener {
         }
         
         // Проверяем, есть ли у редкости эффекты при ударе
-        if (rarity.getOnHitEffects().isEmpty()) {
+        if (rarity.onHitEffects().isEmpty()) {
             return;
         }
         
@@ -70,7 +70,7 @@ public class WeaponEffectListener implements Listener {
         
         // Проверяем шанс срабатывания
         double roll = random.nextDouble() * 100.0;
-        if (roll > rarity.getEffectChance()) {
+        if (roll > rarity.effectChance()) {
             return;
         }
         
@@ -110,7 +110,7 @@ public class WeaponEffectListener implements Listener {
         long currentTime = System.currentTimeMillis();
         long lastUse = effectCooldowns.getOrDefault(playerId, 0L);
         
-        return (currentTime - lastUse) < rarity.getEffectCooldown();
+        return (currentTime - lastUse) < rarity.effectCooldown();
     }
     
     private void setCooldown(Player player, Rarity rarity) {
@@ -118,12 +118,12 @@ public class WeaponEffectListener implements Listener {
     }
     
     private void applyEffects(Player player, LivingEntity target, Rarity rarity) {
-        for (Map.Entry<PotionEffectType, Integer> entry : rarity.getOnHitEffects().entrySet()) {
+        for (Map.Entry<PotionEffectType, Integer> entry : rarity.onHitEffects().entrySet()) {
             PotionEffectType effectType = entry.getKey();
             int amplifier = entry.getValue();
             
             // Длительность зависит от редкости
-            int duration = getDuration(rarity.getId()) * 20; // В тиках
+            int duration = getDuration(rarity.id()) * 20; // В тиках
             
             PotionEffect effect = new PotionEffect(effectType, duration, amplifier, false, true, true);
             target.addPotionEffect(effect);
@@ -166,7 +166,7 @@ public class WeaponEffectListener implements Listener {
     }
     
     private Sound getHitSound(Rarity rarity) {
-        return switch (rarity.getId()) {
+        return switch (rarity.id()) {
             case "celestial" -> Sound.ENTITY_WITHER_SPAWN;
             case "divine" -> Sound.ENTITY_ENDER_DRAGON_HURT;
             case "mythic" -> Sound.ENTITY_ENDERMAN_SCREAM;
@@ -178,7 +178,7 @@ public class WeaponEffectListener implements Listener {
     }
     
     private float getHitPitch(Rarity rarity) {
-        return switch (rarity.getId()) {
+        return switch (rarity.id()) {
             case "celestial" -> 0.5f;
             case "divine" -> 0.7f;
             case "mythic" -> 0.8f;
@@ -190,7 +190,7 @@ public class WeaponEffectListener implements Listener {
     }
     
     private Particle getHitParticle(Rarity rarity) {
-        return switch (rarity.getId()) {
+        return switch (rarity.id()) {
             case "celestial" -> Particle.END_ROD;
             case "divine" -> Particle.ENCHANTMENT_TABLE;
             case "mythic" -> Particle.DRAGON_BREATH;
@@ -203,14 +203,14 @@ public class WeaponEffectListener implements Listener {
     
     private void notifyPlayer(Player player, Rarity rarity, LivingEntity target) {
         // Создаем сообщение о срабатывании способности
-        String message = switch (rarity.getId()) {
+        String message = switch (rarity.id()) {
             case "celestial" -> "<gradient:#ff6b6b:#4ecdc4>✦ Небесная сила активирована! ✦</gradient>";
             case "divine" -> "<gradient:#a8edea:#fed6e3>✧ Божественная мощь! ✧</gradient>";
             case "mythic" -> "<gradient:#d299c2:#fef9d7>⚡ Мифическая энергия! ⚡</gradient>";
             case "legendary" -> "<gradient:#ffeaa7:#fab1a0>🔥 Легендарная сила! 🔥</gradient>";
             case "epic" -> "<gradient:#6c5ce7:#a29bfe>⭐ Эпическая способность! ⭐</gradient>";
             case "rare" -> "<gradient:#0984e3:#74b9ff>✨ Редкий эффект! ✨</gradient>";
-            default -> "<color:" + rarity.getColor().asHexString() + ">• Особая способность! •</color>";
+            default -> "<color:" + rarity.color().asHexString() + ">• Особая способность! •</color>";
         };
         
         Component component = miniMessage.deserialize(message);

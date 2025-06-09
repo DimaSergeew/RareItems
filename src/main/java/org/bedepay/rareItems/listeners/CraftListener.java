@@ -6,6 +6,7 @@ import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bedepay.rareItems.RareItems;
 import org.bedepay.rareItems.rarity.Rarity;
 import org.bedepay.rareItems.util.ItemUtil;
+import org.bedepay.rareItems.util.MaterialTypeChecker;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -32,11 +33,12 @@ public class CraftListener implements Listener {
     private final Random random = new Random();
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
     
-    // Кэш для улучшения производительности
-    private final Map<Material, Boolean> weaponArmorCache = new ConcurrentHashMap<>();
+    // Кэш для проверки типов материалов
+    private final MaterialTypeChecker materialTypeChecker;
 
     public CraftListener(RareItems plugin) {
         this.plugin = plugin;
+        this.materialTypeChecker = new MaterialTypeChecker(plugin);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -56,9 +58,8 @@ public class CraftListener implements Listener {
         // Если да - не применяем случайные шансы, улучшение уже обработано в RarityUpgradeListener
         ItemStack currentResult = event.getCurrentItem();
         if (currentResult != null && currentResult.getItemMeta() != null) {
-            if (currentResult.getItemMeta().getPersistentDataContainer().has(
-                    new NamespacedKey(plugin, "rarity_upgrade"), 
-                    PersistentDataType.BYTE)) {
+            if (currentResult.getItemMeta().getPersistentDataContainer()
+                    .getOrDefault(new NamespacedKey(plugin, "rarity_upgrade"), PersistentDataType.BOOLEAN, false)) {
                 
                 if (plugin.getConfigManager().isDebugMode()) {
                     plugin.getLogger().info("[RareItems Debug] Пропускаем обработку крафта - это улучшение редкости");
@@ -101,28 +102,14 @@ public class CraftListener implements Listener {
             
                     // Логирование для отладки
         if (plugin.getConfigManager().isDebugMode()) {
-            plugin.getLogger().info(String.format("[RareItems Debug] Обычный крафт: Игрок %s получил %s предмет: %s", 
-                    player.getName(), selectedRarity.getName(), rareItem.getType().name()));
+            plugin.getSLF4JLogger().info("[RareItems Debug] Обычный крафт: Игрок {} получил {} предмет: {}", 
+                    player.getName(), selectedRarity.name(), rareItem.getType().name());
         }
         }
     }
     
     private boolean isWeaponOrArmor(Material material) {
-        // Используем кэш для повышения производительности
-        return weaponArmorCache.computeIfAbsent(material, mat -> {
-            String name = mat.name();
-            return name.endsWith("_SWORD") || 
-                   name.endsWith("_AXE") || 
-                   name.endsWith("_HELMET") || 
-                   name.endsWith("_CHESTPLATE") || 
-                   name.endsWith("_LEGGINGS") || 
-                   name.endsWith("_BOOTS") ||
-                   name.equals("BOW") ||
-                   name.equals("CROSSBOW") ||
-                   name.equals("TRIDENT") ||
-                   name.equals("SHIELD") ||
-                   (name.endsWith("_HOE") && plugin.getConfig().getBoolean("settings.includeHoes", false));
-        });
+        return materialTypeChecker.isWeaponOrArmor(material);
     }
     
     private boolean hasOurRarity(ItemStack item) {
@@ -182,11 +169,11 @@ public class CraftListener implements Listener {
         
         // ИСПРАВЛЕНА ЛОГИКА: идем от самой редкой к менее редкой
         for (Rarity rarity : sortedRarities) {
-            double chance = plugin.getConfigManager().getCraftChance(rarity.getId());
+            double chance = plugin.getConfigManager().getCraftChance(rarity.id());
             
             if (plugin.getConfigManager().isDebugMode()) {
                 plugin.getLogger().info(String.format("Проверяем редкость %s (шанс: %.2f%%, ролл: %.2f%%)", 
-                        rarity.getName(), chance, roll));
+                        rarity.name(), chance, roll));
             }
             
             if (roll <= chance) {
@@ -207,7 +194,7 @@ public class CraftListener implements Listener {
         
         messageTemplate = messageTemplate
                 .replace("%player%", player.getName())
-                .replace("%rarity%", rarity.getName())
+                .replace("%rarity%", rarity.name())
                 .replace("%item%", capitalizedMaterial);
         
         // Создаем красивое сообщение с градиентом в зависимости от редкости
@@ -218,18 +205,18 @@ public class CraftListener implements Listener {
         player.sendMessage(component);
         
         // Отправляем title для очень редких предметов
-        if (isVeryRare(rarity.getId())) {
+        if (isVeryRare(rarity.id())) {
             sendTitle(player, rarity, capitalizedMaterial);
         }
         
         // Уведомляем других игроков о получении очень редкого предмета
-        if (isExtremelyRare(rarity.getId())) {
+        if (isExtremelyRare(rarity.id())) {
             announceToServer(player, rarity, capitalizedMaterial);
         }
     }
     
     private String createRarityMessage(Rarity rarity, String message) {
-        return switch (rarity.getId()) {
+        return switch (rarity.id()) {
             case "celestial" -> "<gradient:#ff6b6b:#4ecdc4>✦✦✦ " + message + " ✦✦✦</gradient>";
             case "divine" -> "<gradient:#a8edea:#fed6e3>✦✦ " + message + " ✦✦</gradient>";
             case "mythic" -> "<gradient:#d299c2:#fef9d7>✦ " + message + " ✦</gradient>";
@@ -237,20 +224,20 @@ public class CraftListener implements Listener {
             case "epic" -> "<gradient:#6c5ce7:#a29bfe>" + message + "</gradient>";
             case "rare" -> "<gradient:#0984e3:#74b9ff>" + message + "</gradient>";
             case "uncommon" -> "<gradient:#00b894:#55a3ff>" + message + "</gradient>";
-            default -> "<color:" + rarity.getColor().asHexString() + ">" + message + "</color>";
+            default -> "<color:" + rarity.color().asHexString() + ">" + message + "</color>";
         };
     }
     
     private void sendTitle(Player player, Rarity rarity, String materialName) {
-        String title = switch (rarity.getId()) {
+        String title = switch (rarity.id()) {
             case "celestial" -> "<gradient:#ff6b6b:#4ecdc4>НЕБЕСНЫЙ ПРЕДМЕТ!</gradient>";
             case "divine" -> "<gradient:#a8edea:#fed6e3>БОЖЕСТВЕННЫЙ ПРЕДМЕТ!</gradient>";
             case "mythic" -> "<gradient:#d299c2:#fef9d7>МИФИЧЕСКИЙ ПРЕДМЕТ!</gradient>";
             case "legendary" -> "<gradient:#ffeaa7:#fab1a0>ЛЕГЕНДАРНЫЙ ПРЕДМЕТ!</gradient>";
-            default -> "<color:" + rarity.getColor().asHexString() + ">" + rarity.getName().toUpperCase() + " ПРЕДМЕТ!</color>";
+            default -> "<color:" + rarity.color().asHexString() + ">" + rarity.name().toUpperCase() + " ПРЕДМЕТ!</color>";
         };
         
-        String subtitle = "<color:" + rarity.getColor().asHexString() + ">" + materialName + "</color>";
+        String subtitle = "<color:" + rarity.color().asHexString() + ">" + materialName + "</color>";
         
         player.showTitle(net.kyori.adventure.title.Title.title(
                 miniMessage.deserialize(title),
@@ -265,12 +252,12 @@ public class CraftListener implements Listener {
     
     private void announceToServer(Player player, Rarity rarity, String materialName) {
         String announcement = String.format("<bold>🎉 Игрок %s получил %s %s! 🎉</bold>", 
-                player.getName(), rarity.getName(), materialName);
+                player.getName(), rarity.name(), materialName);
         
-        String message = switch (rarity.getId()) {
+        String message = switch (rarity.id()) {
             case "celestial" -> "<gradient:#ff6b6b:#4ecdc4>" + announcement + "</gradient>";
             case "divine" -> "<gradient:#a8edea:#fed6e3>" + announcement + "</gradient>";
-            default -> "<color:" + rarity.getColor().asHexString() + ">" + announcement + "</color>";
+            default -> "<color:" + rarity.color().asHexString() + ">" + announcement + "</color>";
         };
         
         Component component = miniMessage.deserialize(message);
@@ -291,7 +278,7 @@ public class CraftListener implements Listener {
         }
         
         // Особые эффекты для очень редких предметов
-        if (isExtremelyRare(rarity.getId())) {
+        if (isExtremelyRare(rarity.id())) {
             spawnEpicEffects(player, rarity);
         }
         
@@ -313,7 +300,7 @@ public class CraftListener implements Listener {
         player.playSound(loc, Sound.BLOCK_BEACON_ACTIVATE, 1.0f, 1.5f);
         
         // Эпичные частицы в зависимости от редкости
-        switch (rarity.getId()) {
+        switch (rarity.id()) {
             case "celestial" -> {
                 // Небесные эффекты - кольцо частиц
                 for (int i = 0; i < 360; i += 15) {
@@ -347,7 +334,7 @@ public class CraftListener implements Listener {
     }
     
     private Sound getSound(Rarity rarity) {
-        String soundName = rarity.getSound();
+        String soundName = rarity.sound();
         if (soundName == null || soundName.equals("NONE")) {
             soundName = plugin.getConfigManager().getCraftSound();
         }
@@ -365,7 +352,7 @@ public class CraftListener implements Listener {
     }
     
     private float getPitch(Rarity rarity) {
-        return switch (rarity.getId()) {
+        return switch (rarity.id()) {
             case "celestial" -> 2.0f;
             case "divine" -> 1.8f;
             case "mythic" -> 1.6f;
@@ -377,9 +364,9 @@ public class CraftListener implements Listener {
     }
     
     private Particle getParticle(Rarity rarity) {
-        String particleName = rarity.getParticle();
+        String particleName = rarity.particle();
         if (particleName == null || particleName.equals("NONE")) {
-            particleName = switch (rarity.getId()) {
+            particleName = switch (rarity.id()) {
                 case "celestial" -> "END_ROD";
                 case "divine" -> "ENCHANTMENT_TABLE";
                 case "mythic" -> "DRAGON_BREATH";
@@ -405,7 +392,7 @@ public class CraftListener implements Listener {
     private void spawnParticleEffect(Player player, Particle particle, Rarity rarity) {
         Location location = player.getLocation().add(0, 1, 0);
         
-        int count = switch (rarity.getId()) {
+        int count = switch (rarity.id()) {
             case "celestial" -> 50;
             case "divine" -> 40;
             case "mythic" -> 30;

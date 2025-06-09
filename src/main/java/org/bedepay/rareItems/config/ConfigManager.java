@@ -158,13 +158,13 @@ public class ConfigManager {
     
     public List<Rarity> getSortedRarities() {
         List<Rarity> sorted = new ArrayList<>(rarities);
-        sorted.sort((r1, r2) -> Double.compare(getCraftChance(r1.getId()), getCraftChance(r2.getId())));
+        sorted.sort((r1, r2) -> Double.compare(getCraftChance(r1.id()), getCraftChance(r2.id())));
         return sorted;
     }
     
     public Rarity getRarityById(String id) {
         return rarities.stream()
-                .filter(rarity -> rarity.getId().equals(id))
+                .filter(rarity -> rarity.id().equals(id))
                 .findFirst()
                 .orElse(null);
     }
@@ -187,5 +187,14 @@ public class ConfigManager {
     
     public boolean isDebugMode() {
         return plugin.getConfig().getBoolean("settings.debug", false);
+    }
+    
+    public void setDebugMode(boolean debugMode) {
+        plugin.getConfig().set("settings.debug", debugMode);
+        plugin.saveConfig();
+    }
+    
+    public List<Rarity> getAllRarities() {
+        return getRarities();
     }
 } 

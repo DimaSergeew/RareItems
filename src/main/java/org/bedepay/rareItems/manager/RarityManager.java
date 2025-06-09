@@ -8,10 +8,14 @@ import org.bedepay.rareItems.RareItems;
 import org.bedepay.rareItems.config.ConfigManager;
 import org.bedepay.rareItems.rarity.Rarity;
 import org.bedepay.rareItems.util.ItemUtil;
+import org.bedepay.rareItems.util.MaterialTypeChecker;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -33,17 +37,18 @@ public class RarityManager {
     }
     
     // Кэши для производительности
-    private final Map<Material, Boolean> weaponArmorCache = new ConcurrentHashMap<>();
     private final Map<String, Rarity> rarityCache = new ConcurrentHashMap<>();
     private final Map<String, Double> rarityProbabilities = new HashMap<>();
     
     private final RareItems plugin;
     private final ConfigManager configManager;
+    private final MaterialTypeChecker materialTypeChecker;
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
     
     public RarityManager(RareItems plugin, ConfigManager configManager) {
         this.plugin = plugin;
         this.configManager = configManager;
+        this.materialTypeChecker = new MaterialTypeChecker(plugin);
         this.initializeCache();
     }
     
@@ -54,67 +59,33 @@ public class RarityManager {
         // Кэшируем все редкости
         rarityCache.clear();
         for (Rarity rarity : configManager.getRarities()) {
-            rarityCache.put(rarity.getId(), rarity);
-            rarityProbabilities.put(rarity.getId(), configManager.getCraftChance(rarity.getId()));
+            rarityCache.put(rarity.id(), rarity);
+            rarityProbabilities.put(rarity.id(), configManager.getCraftChance(rarity.id()));
         }
         
-        // Кэшируем материалы оружия/брони
-        weaponArmorCache.clear();
-        for (Material material : Material.values()) {
-            if (material.isItem()) {
-                weaponArmorCache.put(material, calculateIsWeaponOrArmor(material));
-            }
-        }
+        plugin.getLogger().info("Кэш редкостей инициализирован: " + rarityCache.size() + " редкостей");
     }
     
     /**
-     * Проверяет, является ли материал оружием или броней
+     * Проверяет, является ли материал оружием или броней (используя современный Paper API)
      */
     public boolean isWeaponOrArmor(Material material) {
-        return weaponArmorCache.getOrDefault(material, false);
+        return materialTypeChecker.isWeaponOrArmor(material);
     }
+
     
     /**
-     * Внутренний метод для расчета типа материала
-     */
-    private boolean calculateIsWeaponOrArmor(Material material) {
-        String name = material.name();
-        
-                 // Оружие
-         boolean isWeapon = name.endsWith("_SWORD") || 
-                           name.endsWith("_AXE") || 
-                           name.equals("BOW") ||
-                           name.equals("CROSSBOW") ||
-                           name.equals("TRIDENT") ||
-                           (name.endsWith("_HOE") && plugin.getConfig().getBoolean("settings.includeHoes", false));
-        
-        // Броня
-        boolean isArmor = name.endsWith("_HELMET") || 
-                         name.endsWith("_CHESTPLATE") || 
-                         name.endsWith("_LEGGINGS") || 
-                         name.endsWith("_BOOTS") ||
-                         name.equals("SHIELD");
-        
-        return isWeapon || isArmor;
-    }
-    
-    /**
-     * Проверяет, является ли материал оружием
+     * Проверяет, является ли материал оружием (используя современный Paper API)
      */
     public boolean isWeapon(Material material) {
-        String name = material.name();
-                 return name.endsWith("_SWORD") || name.endsWith("_AXE") || 
-                name.equals("BOW") || name.equals("CROSSBOW") || name.equals("TRIDENT") ||
-                (name.endsWith("_HOE") && plugin.getConfig().getBoolean("settings.includeHoes", false));
+        return materialTypeChecker.isWeapon(material);
     }
     
     /**
-     * Проверяет, является ли материал броней
+     * Проверяет, является ли материал броней (используя современный Paper API)
      */
     public boolean isArmor(Material material) {
-        String name = material.name();
-        return name.endsWith("_HELMET") || name.endsWith("_CHESTPLATE") || 
-               name.endsWith("_LEGGINGS") || name.endsWith("_BOOTS") || name.equals("SHIELD");
+        return materialTypeChecker.isArmor(material);
     }
     
     /**
@@ -172,6 +143,22 @@ public class RarityManager {
     }
     
     /**
+     * Перезагружает кэш редкостей
+     */
+    public void reloadCache() {
+        initializeCache();
+        MaterialTypeChecker.clearCache();
+        plugin.getLogger().info("Кэш RarityManager перезагружен");
+    }
+    
+    /**
+     * Получает информацию о материале для отладки
+     */
+    public String getMaterialInfo(Material material) {
+        return materialTypeChecker.getMaterialInfo(material);
+    }
+    
+    /**
      * Проверяет, является ли редкость очень редкой
      */
     public boolean isVeryRare(String rarityId) {
@@ -189,7 +176,7 @@ public class RarityManager {
      * Создает красивое сообщение с градиентом для редкости
      */
     public Component createRarityMessage(Rarity rarity, String message) {
-        String styledMessage = switch (rarity.getId()) {
+        String styledMessage = switch (rarity.id()) {
             case "celestial" -> "<gradient:#ff6b6b:#4ecdc4>✦✦✦ " + message + " ✦✦✦</gradient>";
             case "divine" -> "<gradient:#a8edea:#fed6e3>✦✦ " + message + " ✦✦</gradient>";
             case "mythic" -> "<gradient:#d299c2:#fef9d7>✦ " + message + " ✦</gradient>";
@@ -197,18 +184,12 @@ public class RarityManager {
             case "epic" -> "<gradient:#6c5ce7:#a29bfe>" + message + "</gradient>";
             case "rare" -> "<gradient:#0984e3:#74b9ff>" + message + "</gradient>";
             case "uncommon" -> "<gradient:#00b894:#55a3ff>" + message + "</gradient>";
-            default -> "<color:" + rarity.getColor().asHexString() + ">" + message + "</color>";
+            default -> "<color:" + rarity.color().asHexString() + ">" + message + "</color>";
         };
         
         return miniMessage.deserialize(styledMessage);
     }
-    
-    /**
-     * Перезагружает все кэши (вызывается при перезагрузке конфига)
-     */
-    public void reloadCache() {
-        initializeCache();
-    }
+
     
     /**
      * Получает отформатированное имя материала

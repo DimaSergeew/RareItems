@@ -7,120 +7,104 @@ import org.bukkit.potion.PotionEffectType;
 import java.util.List;
 import java.util.Map;
 
-public class Rarity {
-    private final String id;
-    private final String name;
-    private final TextColor color;
-    private final double damageBonus;
-    private final double armorBonus;
-    private final double speedBonus;
-    private final double toughnessBonus;
-    private final double attackSpeedBonus;
-    private final double healthBonus;
-    private final double luckBonus;
-    private final List<String> enchantments;
-    private final Map<PotionEffectType, Integer> onHitEffects;
-    private final int effectCooldown;
-    private final double effectChance;
-    private final String particle;
-    private final String sound;
+/**
+ * Java Record для представления редкости предмета.
+ * Автоматически генерирует конструктор, геттеры, equals(), hashCode(), toString()
+ * и делает класс immutable (неизменяемым) по дизайну.
+ */
+public record Rarity(
+        String id,
+        String name,
+        TextColor color,
+        double damageBonus,
+        double armorBonus,
+        double speedBonus,
+        double toughnessBonus,
+        double attackSpeedBonus,
+        double healthBonus,
+        double luckBonus,
+        List<String> enchantments,
+        Map<PotionEffectType, Integer> onHitEffects,
+        int effectCooldown,
+        double effectChance,
+        String particle,
+        String sound,
+        Map<String, Object> specialAbilities
+) {
     
-    // Уникальные способности для разных типов предметов
-    private final Map<String, Object> specialAbilities;
-
-    public Rarity(String id, String name, TextColor color, double damageBonus, double armorBonus, 
-                  double speedBonus, double toughnessBonus, double attackSpeedBonus, double healthBonus,
-                  double luckBonus, List<String> enchantments, Map<PotionEffectType, Integer> onHitEffects,
-                  int effectCooldown, double effectChance, String particle, String sound, 
-                  Map<String, Object> specialAbilities) {
-        this.id = id;
-        this.name = name;
-        this.color = color;
-        this.damageBonus = damageBonus;
-        this.armorBonus = armorBonus;
-        this.speedBonus = speedBonus;
-        this.toughnessBonus = toughnessBonus;
-        this.attackSpeedBonus = attackSpeedBonus;
-        this.healthBonus = healthBonus;
-        this.luckBonus = luckBonus;
-        this.enchantments = enchantments;
-        this.onHitEffects = onHitEffects;
-        this.effectCooldown = effectCooldown;
-        this.effectChance = effectChance;
-        this.particle = particle;
-        this.sound = sound;
-        this.specialAbilities = specialAbilities;
-    }
-
-    public String getId() {
-        return id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public TextColor getColor() {
-        return color;
-    }
-
-    public double getDamageBonus() {
-        return damageBonus;
-    }
-
-    public double getArmorBonus() {
-        return armorBonus;
-    }
-
-    public double getSpeedBonus() {
-        return speedBonus;
-    }
-
-    public double getToughnessBonus() {
-        return toughnessBonus;
-    }
-
-    public double getAttackSpeedBonus() {
-        return attackSpeedBonus;
-    }
-
-    public double getHealthBonus() {
-        return healthBonus;
-    }
-
-    public double getLuckBonus() {
-        return luckBonus;
-    }
-
-    public List<String> getEnchantments() {
-        return enchantments;
-    }
-
-    public Map<PotionEffectType, Integer> getOnHitEffects() {
-        return onHitEffects;
-    }
-
-    public int getEffectCooldown() {
-        return effectCooldown;
-    }
-
-    public double getEffectChance() {
-        return effectChance;
-    }
-
-    public String getParticle() {
-        return particle;
-    }
-
-    public String getSound() {
-        return sound;
+    /**
+     * Компактный конструктор для валидации данных.
+     * Код здесь выполняется перед инициализацией полей.
+     */
+    public Rarity {
+        // Валидация обязательных полей
+        if (id == null || id.trim().isEmpty()) {
+            throw new IllegalArgumentException("ID редкости не может быть null или пустым");
+        }
+        if (name == null || name.trim().isEmpty()) {
+            throw new IllegalArgumentException("Имя редкости не может быть null или пустым");
+        }
+        if (color == null) {
+            throw new IllegalArgumentException("Цвет редкости не может быть null");
+        }
+        
+        // Валидация числовых значений
+        if (effectCooldown < 0) {
+            throw new IllegalArgumentException("Время восстановления эффекта не может быть отрицательным");
+        }
+        if (effectChance < 0 || effectChance > 100) {
+            throw new IllegalArgumentException("Шанс эффекта должен быть от 0 до 100");
+        }
+        
+        // Обеспечиваем immutability для коллекций
+        enchantments = enchantments != null ? List.copyOf(enchantments) : List.of();
+        onHitEffects = onHitEffects != null ? Map.copyOf(onHitEffects) : Map.of();
+        specialAbilities = specialAbilities != null ? Map.copyOf(specialAbilities) : Map.of();
     }
     
+    /**
+     * Альтернативный конструктор с минимальными параметрами.
+     * Остальные значения устанавливаются по умолчанию.
+     */
+    public Rarity(String id, String name, TextColor color) {
+        this(id, name, color, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+             List.of(), Map.of(), 5000, 100.0, "NONE", "NONE", Map.of());
+    }
+    
+    /**
+     * Метод для получения отображаемого имени (синоним для name()).
+     * Оставлен для обратной совместимости с существующим кодом.
+     */
     public String getDisplayName() {
-        return name;
+        return name();
     }
     
-    public Map<String, Object> getSpecialAbilities() {
-        return specialAbilities;
+    /**
+     * Дополнительные методы для совместимости с новым Command API
+     */
+    public double chance() {
+        // Этот метод будет использоваться для получения шанса из ConfigManager
+        // Возвращаем 0 как значение по умолчанию, реальное значение получается из ConfigManager
+        return 0.0;
+    }
+    
+    public double knockbackResistance() {
+        // Сопротивление отбрасыванию - новый атрибут
+        return (Double) specialAbilities.getOrDefault("knockbackResistance", 0.0);
+    }
+    
+    public double durabilityMultiplier() {
+        // Множитель прочности - новый атрибут
+        return (Double) specialAbilities.getOrDefault("durabilityMultiplier", 1.0);
+    }
+    
+    public boolean canCraft() {
+        // Возможность крафта
+        return (Boolean) specialAbilities.getOrDefault("canCraft", true);
+    }
+    
+    public boolean canFindInDungeons() {
+        // Возможность найти в подземельях
+        return (Boolean) specialAbilities.getOrDefault("canFindInDungeons", false);
     }
 } 

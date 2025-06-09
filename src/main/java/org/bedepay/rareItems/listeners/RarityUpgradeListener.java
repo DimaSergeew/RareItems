@@ -7,6 +7,7 @@ import org.bedepay.rareItems.RareItems;
 import org.bedepay.rareItems.config.ConfigManager;
 import org.bedepay.rareItems.rarity.Rarity;
 import org.bedepay.rareItems.util.ItemUtil;
+import org.bedepay.rareItems.util.MaterialTypeChecker;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
@@ -33,6 +34,7 @@ public class RarityUpgradeListener implements Listener {
     
     private final RareItems plugin;
     private final ConfigManager configManager;
+    private final MaterialTypeChecker materialTypeChecker;
     
     // Карта улучшений редкости
     private final Map<String, String> rarityUpgrades = new HashMap<>();
@@ -40,6 +42,7 @@ public class RarityUpgradeListener implements Listener {
     public RarityUpgradeListener(RareItems plugin, ConfigManager configManager) {
         this.plugin = plugin;
         this.configManager = configManager;
+        this.materialTypeChecker = new MaterialTypeChecker(plugin);
         
         // Инициализируем карту улучшений
         initializeUpgradeMap();
@@ -122,12 +125,12 @@ public class RarityUpgradeListener implements Listener {
         if (configManager.isDebugMode()) {
             plugin.getLogger().info(String.format("[RareItems Debug] Попытка улучшения: %s | Редкость 1: %s | Редкость 2: %s", 
                                     item1.getType().name(), 
-                                    (rarity1 != null ? rarity1.getId() : "null"),
-                                    (rarity2 != null ? rarity2.getId() : "null")));
+                                    (rarity1 != null ? rarity1.id() : "null"),
+                                    (rarity2 != null ? rarity2.id() : "null")));
         }
         
         // Проверяем, что оба предмета имеют одинаковую редкость
-        if (rarity1 == null || rarity2 == null || !rarity1.getId().equals(rarity2.getId())) {
+        if (rarity1 == null || rarity2 == null || !rarity1.id().equals(rarity2.id())) {
             if (configManager.isDebugMode()) {
                 plugin.getLogger().info(String.format("[RareItems Debug] Улучшение невозможно: предметы не имеют одинаковой редкости или не имеют редкости вообще"));
             }
@@ -135,10 +138,10 @@ public class RarityUpgradeListener implements Listener {
         }
         
         // Получаем следующую редкость
-        String nextRarityId = rarityUpgrades.get(rarity1.getId());
+        String nextRarityId = rarityUpgrades.get(rarity1.id());
         if (nextRarityId == null) {
             if (configManager.isDebugMode()) {
-                plugin.getLogger().info(String.format("[RareItems Debug] Улучшение: %s уже максимальная редкость", rarity1.getId()));
+                plugin.getLogger().info(String.format("[RareItems Debug] Улучшение: %s уже максимальная редкость", rarity1.id()));
             }
             return; // Максимальная редкость
         }
@@ -172,7 +175,7 @@ public class RarityUpgradeListener implements Listener {
         // Отладочная информация
         if (configManager.isDebugMode()) {
             plugin.getLogger().info(String.format("[RareItems Debug] Успешное улучшение: %s %s -> %s", 
-                                    item1.getType().name(), rarity1.getId(), nextRarity.getId()));
+                                    item1.getType().name(), rarity1.id(), nextRarity.id()));
         }
         
         // Показываем предварительный эффект (только визуально)
@@ -202,12 +205,12 @@ public class RarityUpgradeListener implements Listener {
                 // Уведомляем о успешном улучшении
                 Rarity rarity = ItemUtil.getRarity(result);
                 if (rarity != null) {
-                    player.sendMessage(Component.text("✨ Предмет улучшен до " + rarity.getDisplayName() + " редкости!").color(rarity.getColor()));
+                    player.sendMessage(Component.text("✨ Предмет улучшен до " + rarity.getDisplayName() + " редкости!").color(rarity.color()));
                 }
                 
                 if (configManager.isDebugMode()) {
                     plugin.getLogger().info(String.format("[RareItems Debug] Игрок %s успешно улучшил предмет до %s", 
-                                            player.getName(), rarity != null ? rarity.getId() : "unknown"));
+                                            player.getName(), rarity != null ? rarity.id() : "unknown"));
                 }
             }
         }
@@ -224,10 +227,10 @@ public class RarityUpgradeListener implements Listener {
         
         // Title для особых редкостей
         Rarity rarity = ItemUtil.getRarity(result);
-        if (rarity != null && (rarity.getId().equals("mythic") || rarity.getId().equals("divine") || rarity.getId().equals("celestial"))) {
+        if (rarity != null && (rarity.id().equals("mythic") || rarity.id().equals("divine") || rarity.id().equals("celestial"))) {
             player.showTitle(Title.title(
-                    Component.text("УЛУЧШЕНИЕ!").color(rarity.getColor()),
-                    Component.text(rarity.getDisplayName() + " предмет создан!").color(rarity.getColor()),
+                    Component.text("УЛУЧШЕНИЕ!").color(rarity.color()),
+                    Component.text(rarity.getDisplayName() + " предмет создан!").color(rarity.color()),
                     Title.Times.times(
                             java.time.Duration.ofMillis(500),
                             java.time.Duration.ofMillis(2000),
@@ -238,17 +241,7 @@ public class RarityUpgradeListener implements Listener {
     }
     
     private boolean isWeaponOrArmor(Material material) {
-        String name = material.name();
-        return name.endsWith("_SWORD") || 
-               name.endsWith("_AXE") || 
-               name.endsWith("_HELMET") || 
-               name.endsWith("_CHESTPLATE") || 
-               name.endsWith("_LEGGINGS") || 
-               name.endsWith("_BOOTS") ||
-               name.equals("BOW") || 
-               name.equals("CROSSBOW") || 
-               name.equals("TRIDENT") ||
-               name.equals("SHIELD");
+        return materialTypeChecker.isWeaponOrArmor(material);
     }
     
     /**

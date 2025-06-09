@@ -131,14 +131,14 @@ public class SpecialAbilityListener implements Listener {
         if (rarity == null) return;
         
         // Телепорт для небесных ботинок
-        if (rarity.getId().equals("celestial")) {
+        if (rarity.id().equals("celestial")) {
             handleTeleportAbility(player);
         }
     }
     
     private void handleWeaponAbility(Player attacker, LivingEntity target, ItemStack weapon, Rarity rarity, EntityDamageByEntityEvent event) {
         String materialName = weapon.getType().name();
-        String rarityId = rarity.getId();
+        String rarityId = rarity.id();
         
         // Проверяем кулдаун
         UUID playerId = attacker.getUniqueId();
@@ -248,7 +248,7 @@ public class SpecialAbilityListener implements Listener {
     }
     
     private void handleBowAbility(Player shooter, Arrow arrow, Rarity rarity) {
-        String rarityId = rarity.getId();
+        String rarityId = rarity.id();
         
         switch (rarityId) {
             case "uncommon", "rare" -> {
@@ -297,7 +297,7 @@ public class SpecialAbilityListener implements Listener {
     }
     
     private void handleBootsMovement(Player player, ItemStack boots, Rarity rarity) {
-        String rarityId = rarity.getId();
+        String rarityId = rarity.id();
         Location loc = player.getLocation();
         
         switch (rarityId) {
@@ -423,7 +423,7 @@ public class SpecialAbilityListener implements Listener {
     }
     
     private void applyHelmetEffects(Player player, Rarity rarity) {
-        switch (rarity.getId()) {
+        switch (rarity.id()) {
             case "rare" -> player.addPotionEffect(new PotionEffect(PotionEffectType.NIGHT_VISION, 120, 0));
             case "epic" -> {
                 player.addPotionEffect(new PotionEffect(PotionEffectType.NIGHT_VISION, 120, 0));
@@ -445,7 +445,7 @@ public class SpecialAbilityListener implements Listener {
     }
     
     private void applyChestplateEffects(Player player, Rarity rarity) {
-        switch (rarity.getId()) {
+        switch (rarity.id()) {
             case "legendary" -> player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 120, 0));
                          case "mythic" -> {
                  player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 120, 0));
@@ -459,7 +459,7 @@ public class SpecialAbilityListener implements Listener {
     }
     
     private void applyLeggingsEffects(Player player, Rarity rarity) {
-        switch (rarity.getId()) {
+        switch (rarity.id()) {
             case "rare" -> player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 120, 0));
             case "epic" -> {
                 player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 120, 0));
