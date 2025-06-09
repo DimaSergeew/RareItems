@@ -1,0 +1,49 @@
+name: RareItems
+version: '2.0'
+main: org.bedepay.rareItems.RareItems
+api-version: '1.20'
+description: Современный RPG плагин с редкими предметами, уникальными способностями и Adventure API
+author: BedePay
+website: https://github.com/BedePay
+
+commands:
+  rareitems:
+    description: Основная команда плагина RareItems
+    usage: /rareitems <reload|info|give|inspect|upgrade|debug>
+    aliases: [ri]
+
+permissions:
+  rareitems.admin:
+    description: Полный доступ ко всем функциям плагина
+    default: op
+    children:
+      rareitems.admin.reload: true
+      rareitems.admin.info: true
+      rareitems.admin.give: true
+      rareitems.admin.upgrade: true
+      rareitems.admin.debug: true
+      rareitems.inspect: true
+  
+  rareitems.admin.reload:
+    description: Разрешает перезагрузить конфигурацию плагина
+    default: op
+  
+  rareitems.admin.info:
+    description: Разрешает просматривать информацию о настроенных редкостях
+    default: op
+  
+  rareitems.admin.give:
+    description: Разрешает выдавать предметы определенной редкости
+    default: op
+  
+  rareitems.admin.upgrade:
+    description: Разрешает улучшать предметы до определенной редкости
+    default: op
+  
+  rareitems.admin.debug:
+    description: Разрешает включать/выключать режим отладки
+    default: op
+  
+  rareitems.inspect:
+    description: Разрешает проверять редкость предметов
+    default: true
