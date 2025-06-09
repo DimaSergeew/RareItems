@@ -1,0 +1,35 @@
+# Следует тем же правилам, что и .gitignore
+.git/
+.gitignore
+.gitattributes
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+.settings/
+
+# Build outputs
+build/
+target/
+*.jar
+*.class
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Development
+test/
+tests/
+local/
+dev/
+
+# Logs
+*.log
+logs/
+
+# Cache
+.gradle/
+cache/
+.cache/ 

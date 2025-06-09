@@ -1,0 +1,262 @@
+# ================================
+# Gradle
+# ================================
+.gradle/
+build/
+out/
+**/build/
+gradle-app.setting
+!gradle-wrapper.jar
+!gradle-wrapper.properties
+
+# ================================
+# Java
+# ================================
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# ================================
+# IDE Files
+# ================================
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Eclipse
+.project
+.metadata
+.classpath
+.settings/
+bin/
+
+# VS Code
+.vscode/
+
+# NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# ================================
+# OS Files
+# ================================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# Linux
+*~
+.nfs*
+
+# ================================
+# Minecraft/Plugin Files
+# ================================
+# Сервер для тестов
+server/
+test-server/
+run/
+
+# Логи
+logs/
+*.log
+
+# Временные файлы плагина
+plugins/RareItems/
+config/
+world/
+world_nether/
+world_the_end/
+
+# ================================
+# Backup Files
+# ================================
+*.bak
+*.backup
+*.tmp
+*.temp
+
+# ================================
+# Dependency Downloads
+# ================================
+libs/
+dependencies/
+
+# ================================
+# Version Control
+# ================================
+.git/
+.svn/
+.hg/
+
+# ================================
+# Local Development Files
+# ================================
+# Локальные настройки разработчика
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Тестовые серверы и данные
+test/
+tests/
+testing/
+local/
+dev/
+development/
+
+# Личные заметки и документы
+notes.txt
+notes.md
+TODO.txt
+TODO.md
+NOTES.md
+personal/
+private/
+
+# ================================
+# Generated Documentation
+# ================================
+# Автоматически генерируемая документация (оставляем только написанную вручную)
+doc/
+docs/generated/
+javadoc/
+apidoc/
+*.docx
+*.pdf
+
+# ================================
+# Version Locks and Dependencies
+# ================================
+# Файлы блокировки версий (могут конфликтовать между разработчиками)
+gradle.lockfile
+*.lock
+
+# Скачанные зависимости
+lib/
+libraries/
+vendor/
+
+# ================================
+# Development Tools Config
+# ================================
+# Конфигурации инструментов разработки
+.editorconfig
+.prettier*
+.eslint*
+.stylelint*
+sonar-project.properties
+
+# ================================
+# Build Artifacts
+# ================================
+# Все артефакты сборки
+target/
+dist/
+*.jar
+*.war
+*.ear
+*.sar
+*.rar
+*.zip
+*.tar
+*.tar.gz
+*.7z
+
+# ================================
+# Runtime Files
+# ================================
+# Файлы времени выполнения
+*.pid
+*.seed
+*.pid.lock
+.nyc_output
+
+# ================================
+# Database Files
+# ================================
+# Базы данных (для тестирования)
+*.db
+*.sqlite
+*.sqlite3
+*.sql
+data/
+database/
+
+# ================================
+# Media and Assets
+# ================================
+# Медиа файлы (если не нужны для проекта)
+*.mp4
+*.avi
+*.mov
+*.wmv
+*.mp3
+*.wav
+*.ogg
+*.flac
+
+# Изображения (кроме важных для проекта)
+screenshots/
+images/temp/
+temp_images/
+
+# ================================
+# Other
+# ================================
+*.orig
+*.rej
+.cache/
+cache/
+.kotlinc_cache/
+
+# Временные файлы текстовых редакторов
+*~
+*.swp
+*.swo
+*#
+.#*
+
+# Файлы пакетов
+node_modules/
+package-lock.json
+yarn.lock
+
+# ================================
+# ТОЛЬКО РАЗРЕШЕННЫЕ ФАЙЛЫ
+# ================================
+# Если нужно быть ОЧЕНЬ строгим, раскомментируйте эти строки:
+# Они будут игнорировать ВСЕ, кроме явно разрешенных файлов
+
+# /*
+# !src/
+# !build.gradle
+# !settings.gradle
+# !gradle.properties
+# !gradlew
+# !gradlew.bat
+# !gradle/wrapper/
+# !README.md
+# !LICENSE
+# !.gitignore
+# !.gitattributes
+# !plugin.yml 

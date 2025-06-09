@@ -66,6 +66,15 @@ public class SpecialAbilityListener implements Listener {
     
     @EventHandler
     public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
+        // Обработка урона от стрел с особыми свойствами
+        if (event.getDamager() instanceof Arrow arrow) {
+            if (arrow.getShooter() instanceof Player shooter) {
+                handleArrowDamage(shooter, arrow, event);
+                return;
+            }
+        }
+        
+        // Обработка урона от оружия ближнего боя
         if (!(event.getDamager() instanceof Player attacker)) return;
         if (!(event.getEntity() instanceof LivingEntity target)) return;
         
@@ -97,11 +106,8 @@ public class SpecialAbilityListener implements Listener {
         if (!(event.getEntity() instanceof Arrow arrow)) return;
         if (!(event.getEntity().getShooter() instanceof Player shooter)) return;
         
-        // Проверяем есть ли данные о луке в metadata стрелы
-        if (arrow.hasMetadata("rare_bow_ability")) {
-            String abilityType = arrow.getMetadata("rare_bow_ability").get(0).asString();
-            handleArrowHitAbility(shooter, arrow, event.getHitEntity(), abilityType);
-        }
+        // Обрабатываем особые эффекты при попадании
+        handleArrowHitEffects(shooter, arrow, event.getHitEntity());
     }
     
     @EventHandler
@@ -250,49 +256,169 @@ public class SpecialAbilityListener implements Listener {
     private void handleBowAbility(Player shooter, Arrow arrow, Rarity rarity) {
         String rarityId = rarity.id();
         
+        // Вычисляем бонус урона в зависимости от редкости
+        double damageMultiplier = switch (rarityId) {
+            case "uncommon" -> 1.1; // +10% урона
+            case "rare" -> 1.2;     // +20% урона
+            case "epic" -> 1.3;     // +30% урона
+            case "legendary" -> 1.5; // +50% урона
+            case "mythic" -> 1.7;    // +70% урона
+            case "divine" -> 2.0;    // +100% урона
+            case "celestial" -> 2.5; // +150% урона
+            default -> 1.0;
+        };
+        
+        // Сохраняем информацию о бонусе в PDC стрелы
+        if (damageMultiplier > 1.0) {
+            arrow.getPersistentDataContainer().set(
+                ItemUtil.getKey(plugin, "bow_damage_multiplier"), 
+                org.bukkit.persistence.PersistentDataType.DOUBLE, 
+                damageMultiplier
+            );
+            
+            // Сохраняем редкость для эффектов
+            arrow.getPersistentDataContainer().set(
+                ItemUtil.getKey(plugin, "bow_rarity"), 
+                org.bukkit.persistence.PersistentDataType.STRING, 
+                rarityId
+            );
+        }
+        
+        // Дополнительные эффекты в зависимости от редкости
         switch (rarityId) {
             case "uncommon", "rare" -> {
                 // Быстрая стрельба
-                arrow.setVelocity(arrow.getVelocity().multiply(1.2));
-                arrow.setMetadata("rare_bow_ability", new org.bukkit.metadata.FixedMetadataValue(plugin, "fast"));
+                arrow.setVelocity(arrow.getVelocity().multiply(1.1));
             }
             case "epic" -> {
-                // Пробивание
-                arrow.setMetadata("rare_bow_ability", new org.bukkit.metadata.FixedMetadataValue(plugin, "piercing"));
+                // Увеличенная скорость
+                arrow.setVelocity(arrow.getVelocity().multiply(1.2));
             }
             case "legendary" -> {
-                // Огненные стрелы
+                // Огненные стрелы + увеличенная скорость
                 arrow.setFireTicks(200);
-                arrow.setMetadata("rare_bow_ability", new org.bukkit.metadata.FixedMetadataValue(plugin, "fire"));
+                arrow.setVelocity(arrow.getVelocity().multiply(1.3));
             }
             case "mythic" -> {
                 // Взрывные стрелы
-                arrow.setMetadata("rare_bow_ability", new org.bukkit.metadata.FixedMetadataValue(plugin, "explosive"));
+                arrow.getPersistentDataContainer().set(
+                    ItemUtil.getKey(plugin, "explosive"), 
+                    org.bukkit.persistence.PersistentDataType.BOOLEAN, 
+                    true
+                );
+                arrow.setVelocity(arrow.getVelocity().multiply(1.4));
             }
             case "divine", "celestial" -> {
-                // Божественные стрелы
+                // Божественные стрелы с мощными эффектами
                 arrow.setVelocity(arrow.getVelocity().multiply(1.5));
-                arrow.setMetadata("rare_bow_ability", new org.bukkit.metadata.FixedMetadataValue(plugin, "divine"));
+                arrow.getPersistentDataContainer().set(
+                    ItemUtil.getKey(plugin, "divine_arrow"), 
+                    org.bukkit.persistence.PersistentDataType.BOOLEAN, 
+                    true
+                );
             }
         }
     }
     
-    private void handleArrowHitAbility(Player shooter, Arrow arrow, org.bukkit.entity.Entity hitEntity, String abilityType) {
+    /**
+     * Обрабатывает урон от стрел с особыми свойствами
+     */
+    private void handleArrowDamage(Player shooter, Arrow arrow, EntityDamageByEntityEvent event) {
+        // Проверяем есть ли бонус урона в PDC стрелы
+        double damageMultiplier = arrow.getPersistentDataContainer().getOrDefault(
+            ItemUtil.getKey(plugin, "bow_damage_multiplier"), 
+            org.bukkit.persistence.PersistentDataType.DOUBLE, 
+            1.0
+        );
+        
+        if (damageMultiplier > 1.0) {
+            // Увеличиваем урон
+            double originalDamage = event.getDamage();
+            double newDamage = originalDamage * damageMultiplier;
+            event.setDamage(newDamage);
+            
+            // Получаем редкость для эффектов
+            String rarityId = arrow.getPersistentDataContainer().get(
+                ItemUtil.getKey(plugin, "bow_rarity"), 
+                org.bukkit.persistence.PersistentDataType.STRING
+            );
+            
+            if (rarityId != null) {
+                // Играем эффекты урона
+                playBowDamageEffects(shooter, arrow, event.getEntity(), rarityId, newDamage - originalDamage);
+            }
+            
+            if (configManager.isDebugMode()) {
+                plugin.getLogger().info(String.format("[RareItems Debug] Лук %s: урон %s -> %s (x%.1f)", 
+                        rarityId, String.format("%.1f", originalDamage), String.format("%.1f", newDamage), damageMultiplier));
+            }
+        }
+    }
+    
+    /**
+     * Обрабатывает особые эффекты при попадании стрелы
+     */
+    private void handleArrowHitEffects(Player shooter, Arrow arrow, org.bukkit.entity.Entity hitEntity) {
         Location hitLocation = arrow.getLocation();
         
-        switch (abilityType) {
-            case "explosive" -> {
-                // Взрыв без разрушения блоков
-                hitLocation.getWorld().createExplosion(hitLocation, 2.0f, false, false);
+        // Взрывные стрелы
+        if (arrow.getPersistentDataContainer().has(ItemUtil.getKey(plugin, "explosive"), org.bukkit.persistence.PersistentDataType.BOOLEAN)) {
+            hitLocation.getWorld().createExplosion(hitLocation, 2.0f, false, false);
+            hitLocation.getWorld().spawnParticle(Particle.EXPLOSION_LARGE, hitLocation, 3, 0.5, 0.5, 0.5, 0);
+        }
+        
+        // Божественные стрелы
+        if (arrow.getPersistentDataContainer().has(ItemUtil.getKey(plugin, "divine_arrow"), org.bukkit.persistence.PersistentDataType.BOOLEAN)) {
+            // Исцеление стрелка
+            shooter.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 100, 1));
+            
+            // Эффекты на цель
+            if (hitEntity instanceof LivingEntity living) {
+                living.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 200, 0));
+                living.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, 60, 1));
             }
-            case "divine" -> {
-                // Божественное исцеление стрелка и урон врагам
-                shooter.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 100, 1));
-                if (hitEntity instanceof LivingEntity living) {
-                    living.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 200, 0));
-                }
-                hitLocation.getWorld().spawnParticle(Particle.END_ROD, hitLocation, 20, 1, 1, 1, 0);
-            }
+            
+            // Красивые эффекты
+            hitLocation.getWorld().spawnParticle(Particle.END_ROD, hitLocation, 20, 1, 1, 1, 0);
+            hitLocation.getWorld().spawnParticle(Particle.ENCHANTMENT_TABLE, hitLocation, 15, 0.5, 0.5, 0.5, 0);
+        }
+    }
+    
+    /**
+     * Играет эффекты увеличенного урона от лука
+     */
+    private void playBowDamageEffects(Player shooter, Arrow arrow, org.bukkit.entity.Entity target, String rarityId, double bonusDamage) {
+        Location targetLocation = target.getLocation().add(0, 1, 0);
+        
+        // Частицы в зависимости от редкости
+        Particle particle = switch (rarityId) {
+            case "celestial" -> Particle.END_ROD;
+            case "divine" -> Particle.ENCHANTMENT_TABLE;
+            case "mythic" -> Particle.DRAGON_BREATH;
+            case "legendary" -> Particle.FLAME;
+            case "epic" -> Particle.CRIT_MAGIC;
+            case "rare" -> Particle.CRIT;
+            default -> Particle.DAMAGE_INDICATOR;
+        };
+        
+        // Количество частиц зависит от бонусного урона
+        int particleCount = Math.min(30, (int)(bonusDamage * 3));
+        target.getWorld().spawnParticle(particle, targetLocation, particleCount, 0.5, 0.8, 0.5, 0.1);
+        
+        // Звук критического попадания
+        if (bonusDamage > 3) {
+            shooter.playSound(shooter.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 1.5f);
+        }
+        
+        // Уведомление стрелка о мощном выстреле
+        if (bonusDamage > 5) {
+            Component message = Component.text("🏹 Мощный выстрел! +")
+                    .color(NamedTextColor.GOLD)
+                    .append(Component.text(String.format("%.1f", bonusDamage))
+                            .color(NamedTextColor.RED))
+                    .append(Component.text(" урона!").color(NamedTextColor.GOLD));
+            
+            shooter.sendActionBar(message);
         }
     }
     

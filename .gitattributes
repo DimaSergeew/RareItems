@@ -1,0 +1,67 @@
+# ================================
+# Text Files
+# ================================
+*.md text
+*.txt text
+*.json text
+*.yml text
+*.yaml text
+*.xml text
+*.properties text
+
+# ================================
+# Java Files
+# ================================
+*.java text diff=java
+*.kt text
+*.kts text
+*.gradle text
+*.gradle.kts text
+
+# ================================
+# Configuration Files
+# ================================
+.gitignore text
+.gitattributes text
+*.cfg text
+*.conf text
+*.ini text
+
+# ================================
+# Web Files
+# ================================
+*.html text
+*.css text
+*.js text
+
+# ================================
+# Documentation
+# ================================
+README* text
+LICENSE* text
+CHANGELOG* text
+
+# ================================
+# Binary Files
+# ================================
+*.jar binary
+*.zip binary
+*.tar.gz binary
+*.class binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+
+# ================================
+# Line Endings
+# ================================
+# Ensure Windows files have CRLF line endings in the working directory
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Ensure Unix files have LF line endings in the working directory  
+gradlew text eol=lf
+*.sh text eol=lf 
